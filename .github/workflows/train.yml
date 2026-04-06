@@ -27,9 +27,6 @@ jobs:
       - name: 📁 Create directories
         run: mkdir -p data models
 
-      - name: 🧪 Generate mock data
-        run: python generate_mock_data.py
-
       - name: 🏋️ Train model
         run: python src/train_no_mlflow.py
 
