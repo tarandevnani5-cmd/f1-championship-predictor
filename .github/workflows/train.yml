@@ -24,32 +24,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 📁 Create data directory
+      - name: 📁 Create directories
         run: mkdir -p data models
 
-      - name: 🧪 Run preprocessing test
-        run: |
-          python -c "
-          import pandas as pd, os
-          # Create minimal mock CSVs for CI testing
-          os.makedirs('data', exist_ok=True)
+      - name: 🧪 Generate mock data
+        run: python generate_mock_data.py
 
-          races = pd.DataFrame({'raceId':[1,2],'year':[2023,2023],'round':[1,2],'name':['Race1','Race2']})
-          races.to_csv('data/races.csv', index=False)
+      - name: 🏋️ Train model
+        run: python src/train_no_mlflow.py
 
-          standings = pd.DataFrame({'raceId':[2],'driverId':[1],'points':[400],'position':[1],'wins':[10]})
-          standings.to_csv('data/driver_standings.csv', index=False)
-
-          results = pd.DataFrame({'raceId':[1,2],'driverId':[1,1],'position':['1','1'],'statusId':[1,1]})
-          results.to_csv('data/results.csv', index=False)
-
-          drivers = pd.DataFrame({'driverId':[1],'forename':['Max'],'surname':['Verstappen']})
-          drivers.to_csv('data/drivers.csv', index=False)
-
-          print('Mock CSVs created for CI')
-          "
-
-      - name: ✅ Lint with flake8
+      - name: ✅ Lint check
         run: |
           pip install flake8
           flake8 src/ app/ --max-line-length=120 --ignore=E501,W503 || true
@@ -57,9 +41,14 @@ jobs:
       - name: 🚀 API health check
         run: |
           python -c "
-          from fastapi.testclient import TestClient
           import sys, os
           sys.path.insert(0, os.getcwd())
-          # Just import and check app loads
-          print('FastAPI app import check passed')
+          from app.main import app
+          from fastapi.testclient import TestClient
+          
+          client = TestClient(app)
+          response = client.get('/health')
+          assert response.status_code == 200
+          assert response.json()['model_loaded'] is True
+          print('✅ FastAPI health check passed with model loaded')
           "
