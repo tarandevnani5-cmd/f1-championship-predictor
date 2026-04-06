@@ -14,9 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # This copies app/, src/, templates/, data/, and models/
 COPY . .
 
-# 6. Pre-train the model inside the container 
-# (This ensures the .pkl files exist before the API starts)
-RUN python src/train_no_mlflow.py
+# 6. Generate mock data and Pre-train the model inside the container 
+# This makes the build self-sufficient even if data/ is ignored by Git
+RUN python generate_mock_data.py && python src/train_no_mlflow.py
 
 # 7. Expose the port FastAPI will run on
 EXPOSE 8000
