@@ -12,34 +12,27 @@ pipeline {
             }
         }
 
-        stage('Build Environment') {
-            steps {
-                echo "Installing dependencies..."
-                // Using 'bat' for Windows Jenkins
-                bat "python -m pip install --upgrade pip"
-                bat "pip install --no-cache-dir -r requirements.txt"
-            }
-        }
-
-        stage('Pre-train Model') {
-            steps {
-                echo "Running training script..."
-                bat "if not exist models mkdir models"
-                bat "python src/train_no_mlflow.py"
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
-                echo "Building Docker image %DOCKER_IMAGE_NAME%..."
+                echo "Building Docker image %DOCKER_IMAGE_NAME%... (This includes training)"
                 bat "docker build -t %DOCKER_IMAGE_NAME%:latest ."
+            }
+        }
+
+        stage('Extract Artifacts') {
+            steps {
+                echo "Extracting model files from the image for archiving..."
+                // Create a temporary container to copy files out
+                bat "docker create --name temp_extract %DOCKER_IMAGE_NAME%:latest"
+                bat "if not exist models mkdir models"
+                bat "docker cp temp_extract:/app/models/. ./models/"
+                bat "docker rm temp_extract"
             }
         }
 
         stage('Self-Test & Health Check') {
             steps {
                 echo "Launching temporary container for health check..."
-                // Try to stop/remove if already exists from a previous failed run
                 bat "docker stop temp_f1_test >nul 2>&1 || rem"
                 bat "docker rm temp_f1_test >nul 2>&1 || rem"
                 
@@ -47,8 +40,7 @@ pipeline {
                 
                 script {
                     echo "Checking if API is responding..."
-                    sleep 5
-                    // Using PowerShell for a simple web request check on Windows
+                    sleep 10 // Give it a bit more time to start
                     bat 'powershell -Command "try { $response = Invoke-WebRequest -Uri http://localhost:8001/ -UseBasicParsing; if ($response.StatusCode -ne 200) { exit 1 } } catch { exit 1 }"'
                 }
 
